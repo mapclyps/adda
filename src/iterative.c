@@ -138,6 +138,15 @@ void MatVec(doublecomplex * restrict in,doublecomplex * restrict out,double * in
 	TIME_TYPE *comm_timing);
 
 //======================================================================================================================
+// fuction wrapper for clBLAS compatible iterative solver to turn off GPU and and Host memory synchronization between itarations
+#ifdef OCL_BLAS
+void MatVec_clBLAS(doublecomplex * in,doublecomplex * out,double * inprod,bool her,TIME_TYPE *timing,
+	TIME_TYPE *comm_timing){
+	bufupload=false;
+	MatVec(in,out,inprod,her,timing,comm_timing);
+	bufupload=true;
+}
+#endif
 
 static inline void SwapPointers(doublecomplex **a,doublecomplex **b)
 /* swap two pointers of (doublecomplex *) type; should work for others but will give "Suspicious pointer conversion"
@@ -529,7 +538,6 @@ ITER_FUNC(BiCG_CS)
 			CL_CH_ERR(clblasGetVersion(&major,&minor,&patch));
 			D("clBLAS library version - %u.%u.%u",major,minor,patch);
 #	endif
-			bufupload=false;
 			CL_CH_ERR(clEnqueueWriteBuffer(command_queue,bufpvec,CL_FALSE,0,sizeof(doublecomplex)*local_nRows,pvec,0,
 				NULL,NULL));
 			CL_CH_ERR(clEnqueueWriteBuffer(command_queue,bufrvec,CL_FALSE,0,sizeof(doublecomplex)*local_nRows,rvec,0,
@@ -580,7 +588,12 @@ ITER_FUNC(BiCG_CS)
 			}
 			// q_k=Avecbuffer=A.p_k
 			if (niter==1 && matvec_ready) {} // do nothing, Avecbuffer is ready to use
-			else MatVec(pvec,Avecbuffer,NULL,false,&Timing_OneIterMVP,&Timing_OneIterMVPComm);
+			else 
+#ifdef OCL_BLAS
+				MatVec_clBLAS(pvec,Avecbuffer,NULL,false,&Timing_OneIterMVP,&Timing_OneIterMVPComm);
+#else
+				MatVec(pvec,Avecbuffer,NULL,false,&Timing_OneIterMVP,&Timing_OneIterMVPComm);
+#endif
 			// mu_k=p_k.q_k; check for mu_k!=0
 #ifdef OCL_BLAS
 			CL_CH_ERR(clblasZdotu(local_nRows,bufmu,0,bufpvec,0,1,bufAvecbuffer,0,1,buftmp,1,&command_queue,0,NULL,
@@ -624,7 +637,6 @@ ITER_FUNC(BiCG_CS)
 					NULL,NULL));
 				CL_CH_ERR(clEnqueueReadBuffer(command_queue,bufxvec,CL_TRUE,0,sizeof(doublecomplex)*local_nRows,xvec,0,
 					NULL,NULL));
-			bufupload=true;
 			}
 #endif
 			// initialize ro_old -> ro_k-2 for next iteration

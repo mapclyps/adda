@@ -138,15 +138,20 @@ void MatVec(doublecomplex * restrict in,doublecomplex * restrict out,double * in
 	TIME_TYPE *comm_timing);
 
 //======================================================================================================================
-// fuction wrapper for clBLAS compatible iterative solver to turn off GPU and and Host memory synchronization between itarations
+void MatVec_wrapper(doublecomplex * restrict in,doublecomplex * restrict out,double * inprod,bool her,TIME_TYPE *timing,
+	TIME_TYPE *comm_timing)
+/* fuction wrapper for MatVec to be called within the iterative solver if the solver is able to use clBLAS, i.e.
+ * the host and GPU memory does not have to be synchronized. Currently it is only used in the bicg solver.
+ */
+{
 #ifdef OCL_BLAS
-void MatVec_clBLAS(doublecomplex * in,doublecomplex * out,double * inprod,bool her,TIME_TYPE *timing,
-	TIME_TYPE *comm_timing){
 	bufupload=false;
-	MatVec(in,out,inprod,her,timing,comm_timing);
-	bufupload=true;
-}
 #endif
+	MatVec(in,out,inprod,her,timing,comm_timing);
+#ifdef OCL_BLAS
+	bufupload=true;
+#endif
+}
 
 static inline void SwapPointers(doublecomplex **a,doublecomplex **b)
 /* swap two pointers of (doublecomplex *) type; should work for others but will give "Suspicious pointer conversion"
@@ -588,12 +593,7 @@ ITER_FUNC(BiCG_CS)
 			}
 			// q_k=Avecbuffer=A.p_k
 			if (niter==1 && matvec_ready) {} // do nothing, Avecbuffer is ready to use
-			else 
-#ifdef OCL_BLAS
-				MatVec_clBLAS(pvec,Avecbuffer,NULL,false,&Timing_OneIterMVP,&Timing_OneIterMVPComm);
-#else
-				MatVec(pvec,Avecbuffer,NULL,false,&Timing_OneIterMVP,&Timing_OneIterMVPComm);
-#endif
+			else MatVec_wrapper(pvec,Avecbuffer,NULL,false,&Timing_OneIterMVP,&Timing_OneIterMVPComm);
 			// mu_k=p_k.q_k; check for mu_k!=0
 #ifdef OCL_BLAS
 			CL_CH_ERR(clblasZdotu(local_nRows,bufmu,0,bufpvec,0,1,bufAvecbuffer,0,1,buftmp,1,&command_queue,0,NULL,

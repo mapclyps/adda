@@ -8,7 +8,7 @@
  *        CS methods still converge to the right result even when matrix is slightly non-symmetric (e.g. -int so),
  *        however they do it much slowly than usually. It is recommended then to use BiCGStab or BCGS2.
  *
- * Copyright (C) 2006-2014 ADDA contributors
+ * Copyright (C) 2006-2015 ADDA contributors
  * This file is part of ADDA.
  *
  * ADDA is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
@@ -138,10 +138,11 @@ void MatVec(doublecomplex * restrict in,doublecomplex * restrict out,double * in
 	TIME_TYPE *comm_timing);
 
 //======================================================================================================================
-void MatVec_wrapper(doublecomplex * restrict in,doublecomplex * restrict out,double * inprod,bool her,TIME_TYPE *timing,
-	TIME_TYPE *comm_timing)
+
+static void MatVec_wrapper(doublecomplex * restrict in,doublecomplex * restrict out,double * inprod,bool her,
+	TIME_TYPE *timing,TIME_TYPE *comm_timing)
 /* fuction wrapper for MatVec to be called within the iterative solver if the solver is able to use clBLAS, i.e.
- * the host and GPU memory does not have to be synchronized. Currently it is only used in the bicg solver.
+ * the host and GPU memory does not have to be synchronized. Currently it is only used in the BiCG solver.
  */
 {
 #ifdef OCL_BLAS
@@ -152,6 +153,8 @@ void MatVec_wrapper(doublecomplex * restrict in,doublecomplex * restrict out,dou
 	bufupload=true;
 #endif
 }
+
+//======================================================================================================================
 
 static inline void SwapPointers(doublecomplex **a,doublecomplex **b)
 /* swap two pointers of (doublecomplex *) type; should work for others but will give "Suspicious pointer conversion"

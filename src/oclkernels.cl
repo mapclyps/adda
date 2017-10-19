@@ -231,7 +231,7 @@ __kernel void arith3(__global double2 *slices_tr,__global const double2 *Dmatrix
 		if (y>=DsizeY) ya=gridY-y;
 		if (z>=DsizeZ) za=gridZ-z;
 	}
-	j=NDCOMP*(xa*DsizeY*DsizeZ+za*DsizeY+ya);
+	j=NDCOMP*(xl*DsizeY*DsizeZ+za*DsizeY+ya);
 
 	barrier(CLK_GLOBAL_MEM_FENCE);
 	for (int f=0;f<6;f++) fmat[f]=Dmatrix[j+f];
@@ -276,7 +276,7 @@ __kernel void arith3_surface(__global double2 *slices_tr,__global const double2 
 	const size_t i=z *gridY + y; // indexSliceZY
 	size_t j;
 	//offset is needed for xa since it is used to calculate the index to Dmatrix
-	size_t xa=x+get_global_offset(2);
+	size_t xa=get_global_id(2);
 	size_t ya=y;
 	size_t za=z;
 
@@ -295,7 +295,7 @@ __kernel void arith3_surface(__global double2 *slices_tr,__global const double2 
 		if (y>=DsizeY) ya=gridY-y;
 		if (z>=DsizeZ) za=gridZ-z;
 	}
-	j=NDCOMP*(xa*DsizeY*DsizeZ+za*DsizeY+ya);
+	j=NDCOMP*(x*DsizeY*DsizeZ+za*DsizeY+ya);
 
 	barrier(CLK_GLOBAL_MEM_FENCE);
 	for (int f=0;f<6;f++) fmat[f]=Dmatrix[j+f];
@@ -318,7 +318,7 @@ __kernel void arith3_surface(__global double2 *slices_tr,__global const double2 
 		xvR[Xcomp]=slicesR_tr[i+x*gridY*gridZ+Xcomp*gridY*gridZ*local_gridX];
 	}
 	// indexRmatrix_mv; first resetting indices
-	xa=x+get_global_offset(2);
+	xa=get_global_id(2);
 	ya=y;
 	za=z;
 	if (transposed==1) { // used only for G_SO

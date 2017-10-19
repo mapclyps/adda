@@ -892,7 +892,6 @@ static void InitRmatrix(const double invNgrid)
 	// Setting kernel arguments which are always the same
 	// for arith3_surface
 	CL_CH_ERR(clSetKernelArg(clarith3_surface,0,sizeof(cl_mem),&bufslices_tr));
-	CL_CH_ERR(clSetKernelArg(clarith3_surface,1,sizeof(cl_mem),&bufDmatrix));
 	CL_CH_ERR(clSetKernelArg(clarith3_surface,2,sizeof(size_t),&smallY));
 	CL_CH_ERR(clSetKernelArg(clarith3_surface,3,sizeof(size_t),&smallZ));
 	CL_CH_ERR(clSetKernelArg(clarith3_surface,4,sizeof(size_t),&gridX));
@@ -1031,7 +1030,6 @@ void InitDmatrix(void)
 	 * compatible with prognosis), but some are initialized (filled with data) later.
 	 */
 	CREATE_CL_BUFFER(bufcc_sqrt,CL_MEM_READ_ONLY,sizeof(cc_sqrt),NULL);
-	CREATE_CL_BUFFER(bufDmatrix,CL_MEM_READ_ONLY,Dsize*sizeof(*Dmatrix),NULL);
 	if (surface) CREATE_CL_BUFFER(bufRmatrix,CL_MEM_READ_ONLY,Rsize*sizeof(*Rmatrix),NULL);
 	CREATE_CL_BUFFER(bufmaterial,CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,local_nvoid_Ndip*sizeof(*material),material);
 	CREATE_CL_BUFFER(bufposition,CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,local_nRows*sizeof(*position),position);
@@ -1093,6 +1091,11 @@ void InitDmatrix(void)
 	 * local_gridX, and trying again. However, consistency of memory sizes is not well anyway. Even if we succeed to
 	 * allocate memory, some artifacts may further appear, e.g. from desktop activity.
 	 */
+	bufDmatrix = malloc(sizeof(cl_mem)*clxslices);
+	for (size_t xsect=0;xsect<clxslices;xsect++){
+		CREATE_CL_BUFFER(bufDmatrix[xsect],CL_MEM_READ_ONLY,local_gridX*DsizeYZ*6*sizeof(doublecomplex),NULL);
+
+	}
 	CREATE_CL_BUFFER(bufslices,CL_MEM_READ_WRITE,slicesize*sizeof(doublecomplex),NULL);
 	CREATE_CL_BUFFER(bufslices_tr,CL_MEM_READ_WRITE,slicesize*sizeof(doublecomplex),NULL);
 	if (surface) {
@@ -1120,7 +1123,6 @@ void InitDmatrix(void)
 		CL_CH_ERR(clSetKernelArg(clarith2,6,sizeof(size_t),&local_Nsmall));
 		// for arith3
 		CL_CH_ERR(clSetKernelArg(clarith3,0,sizeof(cl_mem),&bufslices_tr));
-		CL_CH_ERR(clSetKernelArg(clarith3,1,sizeof(cl_mem),&bufDmatrix));
 		CL_CH_ERR(clSetKernelArg(clarith3,2,sizeof(size_t),&smallY));
 		CL_CH_ERR(clSetKernelArg(clarith3,3,sizeof(size_t),&smallZ));
 		CL_CH_ERR(clSetKernelArg(clarith3,4,sizeof(size_t),&gridX));
@@ -1329,7 +1331,9 @@ void InitDmatrix(void)
 #endif
 #ifdef OPENCL
 	// copy Dmatrix to OpenCL buffer, blocking to ensure completion before function end
-	CL_CH_ERR(clEnqueueWriteBuffer(command_queue,bufDmatrix,CL_TRUE,0,Dsize*sizeof(*Dmatrix),Dmatrix,0,NULL,NULL));
+	for (size_t xsect=0;xsect<clxslices;xsect++){
+	CL_CH_ERR(clEnqueueWriteBuffer(command_queue,bufDmatrix[xsect],CL_TRUE,0,6*local_gridX*DsizeYZ*sizeof(doublecomplex),Dmatrix+(xsect*local_gridX*DsizeYZ*6),0,NULL,NULL));
+	}
 	Free_cVector(Dmatrix);
 #endif
 	if (surface) { // only the total execution time of InitRmatrix is timed
@@ -1436,7 +1440,11 @@ void Free_FFT_Dmat(void)
 	my_clReleaseBuffer(bufresultvec);
 	my_clReleaseBuffer(bufslices);
 	my_clReleaseBuffer(bufslices_tr);
-	my_clReleaseBuffer(bufDmatrix);
+	for (size_t xsect=0;xsect<clxslices;xsect++){
+		my_clReleaseBuffer(bufDmatrix[xsect]);
+	}
+	free(bufDmatrix);
+
 	if (ipr_required) {
 		my_clReleaseBuffer(bufinproduct);
 		Free_general(inprodhlp);

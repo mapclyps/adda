@@ -141,10 +141,14 @@ void MatVec (doublecomplex * restrict argvec,    // the argument vector
 		TransposeYZ(FFT_FORWARD); // including reflecting terms
 		fftY(FFT_FORWARD); // fftY (buf)slices_tr (and reflected terms)
 		// arith3 on Device
-		if (surface) 
+		if (surface){
+			CL_CH_ERR(clSetKernelArg(clarith3_surface,1,sizeof(cl_mem),&bufDmatrix[xsect]));
 			CL_CH_ERR(clEnqueueNDRangeKernel(command_queue,clarith3_surface,3,gwo3,gwsclarith3,NULL,0,NULL,NULL));
-		else 
+		}
+		else {
+			CL_CH_ERR(clSetKernelArg(clarith3,1,sizeof(cl_mem),&bufDmatrix[xsect]));
 			CL_CH_ERR(clEnqueueNDRangeKernel(command_queue,clarith3,3,gwo3,gwsclarith3,NULL,0,NULL,NULL));
+		}
 		// inverse FFT y&z
 		fftY(FFT_BACKWARD); // fftY (buf)slices_tr
 		TransposeYZ(FFT_BACKWARD);
